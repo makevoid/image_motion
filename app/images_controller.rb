@@ -2,10 +2,6 @@
 #
 # notes, warnings: - I'm delegating both scoll views to this class, this needs refactor
 
-class ZoomDelegate
-  
-end
-
 class ImagesController< UIViewController
   
   attr_reader :dir
@@ -35,8 +31,9 @@ class ImagesController< UIViewController
   end
   
   def load_image(image_num)
-    path = "#{dir}/#{"%03d" % image_num}.jpg"
-    image = UIImage.imageNamed path
+    path = "#{dir}/#{"%03d" % image_num}"
+    path = NSBundle.mainBundle.pathForResource path, ofType: "jpg"
+    image = UIImage.imageWithContentsOfFile path
     raise "Image not found: #{path}" unless image
     image
   end
@@ -96,41 +93,54 @@ class ImagesController< UIViewController
     
     image = load_image page_num
     imageView = image_view image
+    imageView.alpha = 0
     imageView.frame = pageScroll.bounds
     pageScroll.addSubview imageView
     @page_scrollviews << WeakRef.new(pageScroll)
     @mainScroll.addSubview pageScroll
     
+    fade_in imageView
+    
     puts "add child: #{page_num}"
   end
+  
+  def fade_in(view)
+    UIView.beginAnimations "Fade In", context: nil
+    UIView.setAnimationDuration 0.35
+    view.alpha = 1
+    UIView.commitAnimations
+  end
+  
   
   def add_view_if_necessary(page_num)
     return if page_num < 0 || @current_page >= images_count
     
     return if @page_scrollviews.map{ |sv| sv.idx }.include? page_num
     
-    add_child_page page_num     
+    add_child_page page_num
   end
+  
+  
+  UNLOAD_QUEUE = Dispatch::Queue.new "img_unload"
   
   def remove_stale_views
     scroll_views = @page_scrollviews.select do |scrollview|
-      scrollview.idx < (@current_page - 2) || scrollview.idx > (@current_page + 2)
-    end
+      scrollview.idx < (@current_page - 1) || scrollview.idx > (@current_page + 1)
+    end  
     scroll_views.each do |scrollView|
-      
-      # for subview in scrollView.subviews
-      #   subview.removeFromSuperview
-      #   subview.image = nil
-      #   subview = nil
-      # end
-      # scrollView.removeFromSuperview
-      # @page_scrollviews.delete scrollView
-      
-      if @current_page > 4
-        # test shit here
+
+      UNLOAD_QUEUE.async do
+        @page_scrollviews.delete scrollView
+        for subview in scrollView.subviews
+          subview.removeFromSuperview
+          subview.image = nil
+          subview = nil
+        end
+        scrollView.removeFromSuperview
+        puts "removed stale views: #{scrollView.idx}, scrollview: #{@page_scrollviews.map{ |sv| sv.idx }}"
       end
       
-      puts "removed stale views: #{scrollView.idx}, scrollview: #{@page_scrollviews.map{ |sv| sv.idx }}"
+      
     end
   end
   
@@ -138,27 +148,33 @@ class ImagesController< UIViewController
     
     return if @current_page == page_num
     
-    add_view_if_necessary page_num - 2
-    add_view_if_necessary page_num - 1
+    # add_view_if_necessary page_num - 1
     add_view_if_necessary page_num
-    add_view_if_necessary page_num + 1
-    add_view_if_necessary page_num + 2
+    # add_view_if_necessary page_num + 1
     
     remove_stale_views
     
     @current_page = page_num
   end
   
-  # mainScroll delegate (scroll)
-  
-  # def scrollViewDidEndDecelerating(scrollView)
-  def scrollViewDidScroll(scrollView)
+  def update_views_for_current_page(scrollView)
     offset = scrollView.contentOffset.x
     width = UIScreen.mainScreen.bounds.size.height
     image_num =  (offset / width + 0.5).to_i 
     
     update_views_for_page image_num
   end
+  
+  # mainScroll delegate (scroll)
+  
+  # def scrollViewDidEndDecelerating(scrollView)
+  def scrollViewDidScroll(scrollView)
+    update_views_for_current_page scrollView
+  end
+  
+  # def scrollViewWillScroll(scrollView)
+  #   update_views_for_current_page scrollView
+  # end
   
   # pageScroll delegate (zoom)
   
