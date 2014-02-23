@@ -17,7 +17,8 @@ class ImagesController< UIViewController
   end
   
   def images_count
-    49
+    #49
+    20
   end
   
   # image view(s)
@@ -68,7 +69,7 @@ class ImagesController< UIViewController
   
   def page_scroll_view(page_num)
     frame = @mainScroll.bounds
-    frame.origin.x = frame.size.width * page_num 
+    frame.origin.x = frame.size.width * (page_num+1) 
   
     pageScroll = UIScrollView.alloc.initWithFrame frame
     pageScroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight
@@ -93,66 +94,63 @@ class ImagesController< UIViewController
     
     image = load_image page_num
     imageView = image_view image
-    imageView.alpha = 0
+    #imageView.alpha = 1
     imageView.frame = pageScroll.bounds
     pageScroll.addSubview imageView
     @page_scrollviews << WeakRef.new(pageScroll)
     @mainScroll.addSubview pageScroll
     
-    fade_in imageView
+    #fade_in imageView
     
-    puts "add child: #{page_num}"
+    #puts "add child: #{page_num}"
   end
   
-  def fade_in(view)
-    UIView.beginAnimations "Fade In", context: nil
-    UIView.setAnimationDuration 0.35
-    view.alpha = 1
-    UIView.commitAnimations
-  end
+  # def fade_in(view)
+  #   UIView.beginAnimations "Fade In", context: nil
+  #   UIView.setAnimationDuration 0.35
+  #   view.alpha = 1
+  #   UIView.commitAnimations
+  # end
   
-  
-  def add_view_if_necessary(page_num)
+  def add_view_if_necessary(page_num, scrollView)
     return if page_num < 0 || @current_page >= images_count
     
     return if @page_scrollviews.map{ |sv| sv.idx }.include? page_num
     
+    scrollView.scrollEnabled = false
     add_child_page page_num
+    queue = Dispatch::Queue.new "img_unload"
+    queue.async do
+      sleep 0.5
+      scrollView.scrollEnabled = true
+    end
   end
-  
-  
-  UNLOAD_QUEUE = Dispatch::Queue.new "img_unload"
   
   def remove_stale_views
     scroll_views = @page_scrollviews.select do |scrollview|
-      scrollview.idx < (@current_page - 1) || scrollview.idx > (@current_page + 1)
+      scrollview.idx < (@current_page - 2) || scrollview.idx > (@current_page + 1)
     end  
     scroll_views.each do |scrollView|
 
-      UNLOAD_QUEUE.async do
-        @page_scrollviews.delete scrollView
-        for subview in scrollView.subviews
-          subview.removeFromSuperview
-          subview.image = nil
-          subview = nil
-        end
-        scrollView.removeFromSuperview
-        puts "removed stale views: #{scrollView.idx}, scrollview: #{@page_scrollviews.map{ |sv| sv.idx }}"
+      @page_scrollviews.delete scrollView
+      for subview in scrollView.subviews
+        subview.removeFromSuperview
+        subview.image = nil
+        subview = nil
       end
-      
+      scrollView.removeFromSuperview
+      #puts "removed stale views: #{scrollView.idx}, scrollview: #{@page_scrollviews.map{ |sv| sv.idx }}"
       
     end
   end
   
-  def update_views_for_page(page_num)
+  def update_views_for_page(page_num, scrollView)
     
     return if @current_page == page_num
     
-    # add_view_if_necessary page_num - 1
-    add_view_if_necessary page_num
-    # add_view_if_necessary page_num + 1
-    
-    remove_stale_views
+    add_view_if_necessary page_num - 1, scrollView
+    add_view_if_necessary page_num    , scrollView
+    # add_view_if_necessary page_num + 1, scrollView
     
     @current_page = page_num
   end
@@ -162,7 +160,7 @@ class ImagesController< UIViewController
     width = UIScreen.mainScreen.bounds.size.height
     image_num =  (offset / width + 0.5).to_i 
     
-    update_views_for_page image_num
+    update_views_for_page image_num, scrollView
   end
   
   # mainScroll delegate (scroll)
@@ -172,9 +170,10 @@ class ImagesController< UIViewController
     update_views_for_current_page scrollView
   end
   
-  # def scrollViewWillScroll(scrollView)
-  #   update_views_for_current_page scrollView
-  # end
+  def scrollViewDidEndDecelerating(scrollView)
+    update_views_for_current_page scrollView
+    remove_stale_views
+  end
   
   # pageScroll delegate (zoom)
   
