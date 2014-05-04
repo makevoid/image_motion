@@ -16,9 +16,13 @@ class ImagesController< UIViewController
     init
   end
   
+  def self.image_width
+    1024
+  end
+  
   def images_count
-    #49
-    20
+    #20
+    185 # zero based
   end
   
   # image view(s)
@@ -35,7 +39,7 @@ class ImagesController< UIViewController
     path = "#{dir}/#{"%03d" % image_num}"
     path = NSBundle.mainBundle.pathForResource path, ofType: "jpg"
     image = UIImage.imageWithContentsOfFile path
-    raise "Image not found: #{path}" unless image
+    raise "Image not found: '#{path}', num: #{num}" unless image
     image
   end
   
@@ -59,8 +63,19 @@ class ImagesController< UIViewController
     @page_scrollviews = []
 
     @current_page = 0
+    
+    # fire = Proc.new do
+    #   add_child_page 0
+    # end
+    # NSTimer.scheduledTimerWithTimeInterval(5, target: fire, selector: 'call:', userInfo: nil, repeats: false)
+    
+    
+    
+    # sleep 4
+    
+    # add_view_if_necessary 0, mainScroll
+    # puts "load"
     add_child_page 0
-    add_child_page 1
     
     mainScroll
   end
@@ -69,7 +84,7 @@ class ImagesController< UIViewController
   
   def page_scroll_view(page_num)
     frame = @mainScroll.bounds
-    frame.origin.x = frame.size.width * (page_num+1) 
+    frame.origin.x = frame.size.width * page_num
   
     pageScroll = UIScrollView.alloc.initWithFrame frame
     pageScroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight
@@ -77,8 +92,9 @@ class ImagesController< UIViewController
     pageScroll.clipsToBounds = true
     pageScroll.minimumZoomScale = 1.0
     pageScroll.maximumZoomScale = 2.0
-    deleg = WeakRef.new self
-    pageScroll.delegate = deleg
+    #deleg = WeakRef.new self     # not needed
+    #pageScroll.delegate = deleg  #
+    pageScroll.delegate = self
     def pageScroll.idx
       @idx
     end
@@ -90,38 +106,41 @@ class ImagesController< UIViewController
   end
   
   def add_child_page(page_num)
+    # puts "adding #{page_num}"
+    
     pageScroll = page_scroll_view page_num 
     
     image = load_image page_num
     imageView = image_view image
-    #imageView.alpha = 1
+    imageView.alpha = 0
     imageView.frame = pageScroll.bounds
     pageScroll.addSubview imageView
     @page_scrollviews << WeakRef.new(pageScroll)
     @mainScroll.addSubview pageScroll
     
-    #fade_in imageView
+    fade_in imageView
     
     #puts "add child: #{page_num}"
   end
   
-  # def fade_in(view)
-  #   UIView.beginAnimations "Fade In", context: nil
-  #   UIView.setAnimationDuration 0.35
-  #   view.alpha = 1
-  #   UIView.commitAnimations
-  # end
+  def fade_in(view)
+    UIView.beginAnimations "Fade In", context: nil
+    UIView.setAnimationDuration 0.35
+    view.alpha = 1
+    UIView.commitAnimations
+  end
   
   def add_view_if_necessary(page_num, scrollView)
     return if page_num < 0 || @current_page >= images_count
     
     return if @page_scrollviews.map{ |sv| sv.idx }.include? page_num
     
+    
     scrollView.scrollEnabled = false
     add_child_page page_num
     queue = Dispatch::Queue.new "img_unload"
     queue.async do
-      sleep 0.5
+      sleep 0.1
       scrollView.scrollEnabled = true
     end
   end
@@ -131,26 +150,26 @@ class ImagesController< UIViewController
       scrollview.idx < (@current_page - 2) || scrollview.idx > (@current_page + 1)
     end  
     scroll_views.each do |scrollView|
-
-      @page_scrollviews.delete scrollView
+      
+      #puts "removing stale views: #{scrollView.idx}, scrollview: #{@page_scrollviews.map{ |sv| sv.idx }}"
+      
+      @page_scrollviews.delete scrollView 
       for subview in scrollView.subviews
-        subview.removeFromSuperview
+        #subview.removeFromSuperview # optional?
         subview.image = nil
-        subview = nil
+        #subview = nil # optional?
       end
-      scrollView.removeFromSuperview
-      #puts "removed stale views: #{scrollView.idx}, scrollview: #{@page_scrollviews.map{ |sv| sv.idx }}"
+      #scrollView.removeFromSuperview # optional?
       
     end
   end
   
   def update_views_for_page(page_num, scrollView)
-    
     return if @current_page == page_num
     
     add_view_if_necessary page_num - 1, scrollView
     add_view_if_necessary page_num    , scrollView
-    # add_view_if_necessary page_num + 1, scrollView
+    #add_view_if_necessary page_num + 1, scrollView
     
     @current_page = page_num
   end
@@ -163,32 +182,9 @@ class ImagesController< UIViewController
     update_views_for_page image_num, scrollView
   end
   
-  # mainScroll delegate (scroll)
-  
-  # def scrollViewDidEndDecelerating(scrollView)
-  def scrollViewDidScroll(scrollView)
-    update_views_for_current_page scrollView
-  end
-  
-  def scrollViewDidEndDecelerating(scrollView)
-    update_views_for_current_page scrollView
-    remove_stale_views
-  end
-  
-  # pageScroll delegate (zoom)
-  
-  def viewForZoomingInScrollView(scrollView)
-    scrollView.subviews.first
-  end
+  include ScrollDelegate # mainScroll delegate
+  include ZoomDelegate   # pageScroll delegate
 
-  def scrollViewDidZoom(scrollView)
-    if scrollView.zoomScale != 1.0
-      scrollView.scrollEnabled = true
-    else
-      scrollView.scrollEnabled = false
-    end
-  end
-  
   # autorotation
   
   def shouldAutorotateToInterfaceOrientation(orientation)
