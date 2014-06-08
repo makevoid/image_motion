@@ -2,6 +2,10 @@
 #
 # notes, warnings: - I'm delegating both scoll views to this class, this needs refactor
 
+class UIView
+  
+end
+
 class ImagesController< UIViewController
   
   attr_reader :dir
@@ -13,7 +17,27 @@ class ImagesController< UIViewController
     
     self.view.addSubview view
     
+    draw_status
+    update_status
+    
     init
+  end
+  
+  def draw_status
+    font_size = 13
+    @status = UILabel.alloc.init
+    # position it to the bottom_right
+    width = 46
+    y = UIScreen.mainScreen.bounds.size.width  - font_size - 30
+    x = UIScreen.mainScreen.bounds.size.height - width     
+    @status.frame = CGRectMake(x, y, width, font_size+10)
+    # @status.bottomRight = self.view.bottomRight (todo: look at readme.md, implement the methods in UIView or in a subclass and remove the code above)
+    @status.font = @status.font.fontWithSize font_size
+    self.view.addSubview @status
+  end
+  
+  def update_status
+    @status.text = "#{@current_page} / #{images_count}"
   end
   
   def self.image_width
@@ -22,7 +46,7 @@ class ImagesController< UIViewController
   
   def images_count
     #20
-    185 # zero based
+    186 # zero based
   end
   
   # image view(s)
@@ -45,8 +69,7 @@ class ImagesController< UIViewController
   
   # loaded / debounced images
   
-  def image_scroll_view
-    mainScroll = UIScrollView.alloc.initWithFrame UIScreen.mainScreen.bounds
+  def decorate_mainscroll(mainScroll)
     mainScroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight
     mainScroll.showsVerticalScrollIndicator   = false
     mainScroll.showsHorizontalScrollIndicator = false
@@ -54,6 +77,14 @@ class ImagesController< UIViewController
     mainScroll.backgroundColor = UIColor.whiteColor
     #deleg = WeakRef.new self
     mainScroll.delegate = self
+    mainScroll
+  end
+  
+  def image_scroll_view
+    # frame = UIApplication.sharedApplication.keyWindow.bounds
+    frame = UIScreen.mainScreen.bounds
+    mainScroll = UIScrollView.alloc.initWithFrame frame
+    mainScroll = decorate_mainscroll mainScroll
     @mainScroll = mainScroll
     
     total_width = UIScreen.mainScreen.bounds.size.height * images_count
@@ -68,7 +99,6 @@ class ImagesController< UIViewController
     #   add_child_page 0
     # end
     # NSTimer.scheduledTimerWithTimeInterval(5, target: fire, selector: 'call:', userInfo: nil, repeats: false)
-    
     
     
     # sleep 4
