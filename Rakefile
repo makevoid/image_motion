@@ -15,9 +15,9 @@ Motion::Project::App.setup do |app|
   app.version = "1.0"
   # app.frameworks << "CoreGraphics"
 
-  app.sdk_version = "5.1" # rake device install_only=1
+  app.sdk_version = "7.0" # rake device install_only=1
   
-  app.icons = [76, 152, 1024].map{ |px| "icon_#{px}" }
+  app.icons = [72, 76, 152, 1024].map{ |px| "icon_#{px}" }
   
   app.device_family = :ipad # universal?
   app.interface_orientations = [:landscape_left, :landscape_right]
@@ -26,7 +26,12 @@ Motion::Project::App.setup do |app|
   app.device_family = [:ipad]
   # app.prerendered_icon = true # removes glossy effect
   
-  # app.codesign_certificate = "iPhone Distribution: makevoid inc"
-  app.provisioning_profile = '/Users/makevoid/Library/MobileDevice/Provisioning Profiles/6DE0A495-7A05-4671-9067-FE007F2F0682.mobileprovision'
+  app.codesign_certificate = "iPhone Distribution: makevoid inc"
+  app.provisioning_profile = '/Users/makevoid/Library/MobileDevice/Provisioning Profiles/08B035E7-610F-416A-8CE0-14D8FFE8F2F2.mobileprovision'
+  
+  
+  # distribution 
+  # app.deployment_target = '5.1.1'
+  
 end
 

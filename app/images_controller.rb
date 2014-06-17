@@ -33,6 +33,7 @@ class ImagesController< UIViewController
     @status.frame = CGRectMake(x, y, width, font_size+10)
     # @status.bottomRight = self.view.bottomRight (todo: look at readme.md, implement the methods in UIView or in a subclass and remove the code above)
     @status.font = @status.font.fontWithSize font_size
+    @status.textColor = UIColor.grayColor
     self.view.addSubview @status
   end
   
